@@ -5,6 +5,7 @@ import {
   loadFooter,
   loadHeader,
 } from './lib-franklin.js';
+import { decorateOverlays } from './overlays.js';
 
 const LCP_BLOCKS = []; // add your LCP blocks to the list
 window.hlx.RUM_GENERATION = 'project-1'; // add your RUM generation information here
@@ -72,99 +73,53 @@ export function addFavIcon(href) {
   }
 }
 
-function getId() {
-  return Math.random().toString(16).slice(2);
-}
 
-function decorateOverlays(doc) {
-  const main = doc.querySelector('main');
+// function decorateOverlays(doc) {
+//   const main = doc.querySelector('main');
 
-  document.body.style.position = 'relative';
+//   document.body.style.position = 'relative';
 
-  let container = document.getElementById('overlay');
-  if (!container) {
-    container = document.createElement('div');
-    container.setAttribute('id', 'overlay');
-    container.style.top = 0;
-    container.style.left = 0;
-    container.style.width = '100%';
-    container.style.height = '100%';
-    document.body.appendChild(container);
-  }
+//   let container = document.getElementById('overlay');
+//   if (!container) {
+//     container = document.createElement('div');
+//     container.setAttribute('id', 'overlay');
+//     document.body.appendChild(container);
+//   }
 
-  main.querySelectorAll('a').forEach((links) => {
-    let { overlayId } = links.dataset;
-    let linksDiv;
-    if (!overlayId) {
-      overlayId = `overlay-${getId()}`;
-      linksDiv = document.createElement('div');
-      linksDiv.setAttribute('id', overlayId);
-      linksDiv.setAttribute('class', 'linksDiv');
-      container.appendChild(linksDiv);
-      links.dataset.overlayId = overlayId;
-    } else {
-      linksDiv = doc.getElementById(overlayId);
-    }
-    const rect = links.getBoundingClientRect();
-    // console.log('links positions', links);
-    linksDiv.style.position = 'absolute';
-    linksDiv.style.height = rect.height + 'px';
-    linksDiv.style.width = rect.width + 'px';
-    linksDiv.style.left = window.scrollX + rect.left + 'px';
-    linksDiv.style.top = window.scrollY + rect.top + 'px';
-    linksDiv.style.backgroundColor = 'rgba(21, 140, 244, 0.5)';
-    let numData = linksDiv.firstElementChild;
-    if (!numData) {
-      numData = document.createElement('medium');
-      linksDiv.append(numData);
-    }
-    numData.textContent = '15.2%';
-  });
+//   main.querySelectorAll('a,img').forEach((el) => {
+//     // console.log('img', main.querySelectorAll('img'));
+//     let { overlayId } = el.dataset;
+//     let elOverlay;
+//     if (!overlayId) {
+//       overlayId = `overlay-${getId()}`;
+//       elOverlay = document.createElement('div');
+//       elOverlay.setAttribute('id', overlayId);
+//       container.appendChild(elOverlay);
+//       el.dataset.overlayId = overlayId;
+//     } else {
+//       elOverlay = doc.getElementById(overlayId);
+//     }
+//     if (main.querySelector('img')) {
+//       elOverlay.setAttribute('class', 'imgClass');
+//     }
 
-  // main.querySelectorAll('.button-container').forEach((buttons, i) => {
-  // let rect = buttons.getBoundingClientRect();
-  // const buttonsDiv = document.createElement('div');
-  // buttonsDiv.setAttribute('id', 'buttonsDiv' + i);
-  // buttonsDiv.setAttribute('class', 'buttonsDiv')
-  // container.appendChild(buttonsDiv);
-  // buttonsDiv.style.position = 'absolute';
-  // buttonsDiv.style.height = rect.height + 'px';
-  // buttonsDiv.style.width = rect.width + 'px';
-  // buttonsDiv.style.left = rect.left + 'px';
-  // buttonsDiv.style.top = rect.top + 'px';
-  // buttonsDiv.style.backgroundColor = "rgba(246, 75, 75, 0.5)";
-  // const numData = document.createElement('h2');
-  // numData.insertAdjacentText('afterbegin', '6.25%');
-  // buttonsDiv.append(numData);
-  // })
+//     const rect = el.getBoundingClientRect();
+//     elOverlay.style.position = 'absolute';
+//     elOverlay.style.height = rect.height + 'px';
+//     elOverlay.style.width = rect.width + 'px';
+//     elOverlay.style.left = window.scrollX + rect.left + 'px';
+//     elOverlay.style.top = window.scrollY + rect.top + 'px';
 
-  main.querySelectorAll('img').forEach((img) => {
-    let { overlayId } = img.dataset;
-    let imgDiv;
-    if (!overlayId) {
-      overlayId = `overlay-${getId()}`;
-      imgDiv = document.createElement('div');
-      imgDiv.setAttribute('id', overlayId);
-      imgDiv.setAttribute('class', 'imgDiv');
-      container.appendChild(imgDiv);
-      img.dataset.overlayId = overlayId;
-    } else {
-      imgDiv = doc.getElementById(overlayId);
-    }
-    const rect = img.getBoundingClientRect();
-    imgDiv.style.position = 'absolute';
-    imgDiv.style.height = rect.height + 'px';
-    imgDiv.style.width = rect.width + 'px';
-    imgDiv.style.left = window.scrollX + rect.left + 'px';
-    imgDiv.style.top = window.scrollY + rect.top + 'px';
-    let numData = imgDiv.firstElementChild;
-    if (!numData) {
-      numData = document.createElement('h1');
-      imgDiv.append(numData);
-    }
-    numData.textContent = '19.54%';
-  });
-}
+//     const value = Math.random();
+//     elOverlay.style.backgroundColor = `hsla(${255 * (1 - value)}, 100%, 50%, .5)`;
+//     let label = elOverlay.firstElementChild;
+//     if (!label) {
+//       label = document.createElement('span');
+//       elOverlay.append(label);
+//     }
+//     label.textContent = (value * 100).toFixed(2) + '%';
+//   });
+// }
 
 /**
  * loads everything that doesn't need to be delayed.
