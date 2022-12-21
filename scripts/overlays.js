@@ -27,6 +27,15 @@ export function decorateOverlays(main) {
       elOverlay.setAttribute('id', overlayId);
       container.appendChild(elOverlay);
       el.dataset.overlayId = overlayId;
+
+      const value = Math.random();
+      elOverlay.style.backgroundColor = `hsla(${255 * (1 - value)}, 100%, 50%, .5)`;
+      let label = elOverlay.firstElementChild;
+      if (!label) {
+        label = document.createElement('span');
+        elOverlay.append(label);
+      }
+      label.textContent = (value * 100).toFixed(2) + '%';
     } else {
       elOverlay = document.getElementById(overlayId);
     }
@@ -41,13 +50,5 @@ export function decorateOverlays(main) {
     elOverlay.style.left = window.scrollX + rect.left + 'px';
     elOverlay.style.top = window.scrollY + rect.top + 'px';
 
-    const value = Math.random();
-    elOverlay.style.backgroundColor = `hsla(${255 * (1 - value)}, 100%, 50%, .5)`;
-    let label = elOverlay.firstElementChild;
-    if (!label) {
-      label = document.createElement('span');
-      elOverlay.append(label);
-    }
-    label.textContent = (value * 100).toFixed(2) + '%';
   });
 }
