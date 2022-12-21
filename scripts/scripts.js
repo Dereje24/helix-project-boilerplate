@@ -5,7 +5,6 @@ import {
   loadFooter,
   loadHeader,
 } from './lib-franklin.js';
-import { decorateOverlays } from './overlays.js';
 
 const LCP_BLOCKS = []; // add your LCP blocks to the list
 window.hlx.RUM_GENERATION = 'project-1'; // add your RUM generation information here
@@ -73,54 +72,6 @@ export function addFavIcon(href) {
   }
 }
 
-
-// function decorateOverlays(doc) {
-//   const main = doc.querySelector('main');
-
-//   document.body.style.position = 'relative';
-
-//   let container = document.getElementById('overlay');
-//   if (!container) {
-//     container = document.createElement('div');
-//     container.setAttribute('id', 'overlay');
-//     document.body.appendChild(container);
-//   }
-
-//   main.querySelectorAll('a,img').forEach((el) => {
-//     // console.log('img', main.querySelectorAll('img'));
-//     let { overlayId } = el.dataset;
-//     let elOverlay;
-//     if (!overlayId) {
-//       overlayId = `overlay-${getId()}`;
-//       elOverlay = document.createElement('div');
-//       elOverlay.setAttribute('id', overlayId);
-//       container.appendChild(elOverlay);
-//       el.dataset.overlayId = overlayId;
-//     } else {
-//       elOverlay = doc.getElementById(overlayId);
-//     }
-//     if (main.querySelector('img')) {
-//       elOverlay.setAttribute('class', 'imgClass');
-//     }
-
-//     const rect = el.getBoundingClientRect();
-//     elOverlay.style.position = 'absolute';
-//     elOverlay.style.height = rect.height + 'px';
-//     elOverlay.style.width = rect.width + 'px';
-//     elOverlay.style.left = window.scrollX + rect.left + 'px';
-//     elOverlay.style.top = window.scrollY + rect.top + 'px';
-
-//     const value = Math.random();
-//     elOverlay.style.backgroundColor = `hsla(${255 * (1 - value)}, 100%, 50%, .5)`;
-//     let label = elOverlay.firstElementChild;
-//     if (!label) {
-//       label = document.createElement('span');
-//       elOverlay.append(label);
-//     }
-//     label.textContent = (value * 100).toFixed(2) + '%';
-//   });
-// }
-
 /**
  * loads everything that doesn't need to be delayed.
  */
@@ -135,7 +86,6 @@ async function loadLazy(doc) {
   loadFooter(doc.querySelector('footer'));
 
   loadCSS(`${window.hlx.codeBasePath}/styles/lazy-styles.css`);
-  loadCSS(`${window.hlx.codeBasePath}/styles/overlays.css`);
   addFavIcon(`${window.hlx.codeBasePath}/styles/favicon.svg`);
 }
 

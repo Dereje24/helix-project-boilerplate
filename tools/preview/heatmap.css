@@ -1,0 +1,29 @@
+body.appear {
+  position: relative;
+}
+
+#heatmap-overlays {
+  position: absolute;
+  top: 0;
+  left: 0;
+  font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+#heatmap-overlays > div {
+  position: absolute;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  text-shadow: 0 0 3px white;
+  transition: transform .3s ease;
+}
+
+#heatmap-overlays > div:hover {
+  border-style: solid;
+  border-width: 1px;
+  transform: scale(1.05);
+  box-shadow: 0 0 10px gray;
+}
