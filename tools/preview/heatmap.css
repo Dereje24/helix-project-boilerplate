@@ -18,12 +18,13 @@ body.appear {
   align-items: center;
   cursor: pointer;
   text-shadow: 0 0 3px white;
-  transition: transform .3s ease;
+  transition: all .3s ease;
 }
 
 #heatmap-overlays > div:hover {
   border-style: solid;
   border-width: 1px;
+  font-size: 2rem;
   transform: scale(1.05);
   box-shadow: 0 0 10px gray;
 }
