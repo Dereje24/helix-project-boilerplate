@@ -4,10 +4,16 @@ import {
   loadCSS,
   loadFooter,
   loadHeader,
+  withPlugin,
 } from './lib-franklin.js';
 
 const LCP_BLOCKS = []; // add your LCP blocks to the list
 window.hlx.RUM_GENERATION = 'project-1'; // add your RUM generation information here
+
+await withPlugin('/tools/preview/heatmap.js', {
+  condition: () => window.location.hostname === 'localhost'
+    || window.location.origin.endsWith('.hlx.page')
+});
 
 function buildHeroBlock(main) {
   const h1 = main.querySelector('h1');
