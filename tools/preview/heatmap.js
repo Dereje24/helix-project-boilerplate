@@ -124,6 +124,11 @@ export function decorateOverlays(doc, options) {
   // Decorate nodes added asynchronously
   const addedNodesObserver = new MutationObserver((entries) => {
     entries.forEach((entry) => {
+      if (entry.type === 'attributes') {
+        entry.target.querySelectorAll(options.selector).forEach((el) => {
+          decorateOverlay.call(this, el, container);
+        });
+      }
       entry.addedNodes.forEach((n) => {
         n.querySelectorAll(options.selector).forEach((el) => {
           decorateOverlay.call(this, el, container);
@@ -141,7 +146,7 @@ export function decorateOverlays(doc, options) {
     });
   });
   document.querySelectorAll('header,main,footer').forEach((el) => {
-    addedNodesObserver.observe(el, { childList: true, subtree: true });
+    addedNodesObserver.observe(el, { childList: true, subtree: true, attributes: true });
   });
 }
 

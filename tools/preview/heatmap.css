@@ -49,7 +49,7 @@
   align-items: center;
   cursor: pointer;
   text-shadow: 0 0 3px white;
-  transition: all .3s ease;
+  transition: box-shadow .3s ease, font-size .3s ease, transform .3s ease;
 }
 
 .heatmap-overlays > div:hover {
