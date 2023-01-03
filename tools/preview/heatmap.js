@@ -132,6 +132,9 @@ export function decorateOverlays(doc, options) {
         // SVG icons might have custom sizes that modify the parent
         if (n.nodeName === 'svg') {
           const parent = n.closest(options.selector);
+          if (!parent) {
+            return;
+          }
           decorateOverlay.call(this, parent, container);
         }
       })
