@@ -154,11 +154,13 @@ export function postLazy(doc, options = {}) {
     window.requestAnimationFrame(() => decorateOverlays.call(this, document, config));
   });
 
+  const overlay = document.querySelector('.heatmap-overlays')
+  overlay.style.display = 'none';
+
   const btn = this.plugins.preview.createToggleButton('Heatmap');
   btn.classList.add('hlx-heatmap-toggle');
   this.plugins.preview.getOverlay().append(btn);
   btn.addEventListener('click', () => {
-    const overlay = document.querySelector('.heatmap-overlays')
     overlay.style.display = btn.getAttribute('aria-pressed') === 'true'
       ? 'block'
       : 'none';
