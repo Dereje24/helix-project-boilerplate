@@ -377,7 +377,7 @@ const pluginContext = {
  * @returns the public API for the plugin, or null if not methods are exposed
  */
 export async function withPlugin(pathOrFunction, options = {}) {
-  if (options.condition && !options.condition()) {
+  if (options.condition && !options.condition.call(pluginContext)) {
     return null;
   }
 

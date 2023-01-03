@@ -69,6 +69,21 @@ function createPopupButton(label, header, items) {
   return button;
 }
 
+function createToggleButton(label) {
+  const button = document.createElement('div');
+  button.className = 'hlx-badge';
+  button.role = 'button'
+  button.setAttribute('aria-pressed', false);
+  button.setAttribute('tabindex', 0);
+  const text = document.createElement('span');
+  text.innerHTML = label;
+  button.append(text);
+  button.addEventListener('click', () => {
+    button.setAttribute('aria-pressed', button.getAttribute('aria-pressed') === 'false');
+  });
+  return button;
+}
+
 function getOverlay() {
   let overlay = document.querySelector('.hlx-preview-overlay');
   if (!overlay) {
@@ -80,6 +95,7 @@ function getOverlay() {
 
 export const api = {
   createPopupButton,
+  createToggleButton,
   getOverlay,
 };
 

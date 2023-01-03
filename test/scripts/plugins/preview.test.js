@@ -71,6 +71,22 @@ describe('Preview overlay plugin', () => {
         expect(btn.querySelector('.hlx-popup').classList.contains('hlx-hidden')).to.false;
       });
     });
+
+    describe('createToggleButton', () => {
+      it('creates a a simple toggle button', () => {
+        const btn = api.createToggleButton('foo');
+        expect(btn.className).to.eql('hlx-badge');
+        expect(btn.getAttribute('aria-pressed')).to.eql('false');
+        expect(btn.querySelector('span').textContent).to.eql('foo');
+      });
+
+      it('toggles the button state on click', () => {
+        const btn = api.createToggleButton('foo');
+        expect(btn.getAttribute('aria-pressed')).to.eql('false');
+        btn.click();
+        expect(btn.getAttribute('aria-pressed')).to.eql('true');
+      });
+    });
   });
 
   describe('preLazy', () => {
