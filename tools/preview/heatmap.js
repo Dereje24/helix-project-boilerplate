@@ -10,6 +10,7 @@
  * governing permissions and limitations under the License.
  */
 export const DEFAULT_OPTIONS = {
+  overlayClass: 'hlx-heatmap-overlay',
   selector: 'a,img',
 };
 
@@ -64,7 +65,7 @@ export function getPositionStyles(el) {
   return null;
 }
 
-export function updateOverlay(elOverlay, el) {
+export function updateZone(elOverlay, el) {
   const rect = el.getBoundingClientRect();
   const positionStyles = getPositionStyles(el);
   elOverlay.style.position = positionStyles ? positionStyles.position : 'absolute';
@@ -82,13 +83,13 @@ export function updateOverlay(elOverlay, el) {
   elOverlay.firstElementChild.textContent = `${(Number(elOverlay.dataset.value) * 100).toFixed(2)}%`;
 }
 
-export function decorateOverlay(el, container) {
+export function decorateZone(el, container) {
   if (!el.id) {
     el.id = toElementId(generateUniqueSelector(el));
   }
   let elOverlay = container.querySelector(`[data-target="${el.id}"]`);
   if (!elOverlay) {
-    const overlayId = `overlay-${getRandomId(el)}`;
+    const overlayId = `zone-${getRandomId(el)}`;
     elOverlay = document.createElement('div');
     elOverlay.setAttribute('id', overlayId);
     elOverlay.dataset.target = el.id;
@@ -98,24 +99,24 @@ export function decorateOverlay(el, container) {
     const label = document.createElement('span');
     elOverlay.append(label);
   }
-  updateOverlay(elOverlay, el);
+  updateZone(elOverlay, el);
 }
 
-export function decorateOverlays(doc, options) {
-  let container = document.querySelector('.heatmap-overlays');
+export function decorateHeatmap(doc, options) {
+  let container = document.querySelector(`.${options.overlayClass}`);
   if (!container) {
     container = document.createElement('div');
-    container.classList.add('heatmap-overlays');
+    container.classList.add(options.overlayClass);
     document.body.appendChild(container);
   }
 
-  doc.querySelectorAll(options.selector).forEach((el) => decorateOverlay.call(this, el, container));
+  doc.querySelectorAll(options.selector).forEach((el) => decorateZone(el, container));
 
   // Decorate nodes whose visibility changed
   const visibilityChangeObserver = new IntersectionObserver((entries) => {
     entries.forEach((entry) => {
       const el = entry.target;
-      decorateOverlay.call(this, el, container);
+      decorateZone(el, container);
       const overlay = container.querySelector(`[data-target="${el.id}"]`);
       overlay.style.display = entry.isIntersecting ? 'flex' : 'none';
     });
@@ -126,12 +127,12 @@ export function decorateOverlays(doc, options) {
     entries.forEach((entry) => {
       if (entry.type === 'attributes') {
         entry.target.querySelectorAll(options.selector).forEach((el) => {
-          decorateOverlay.call(this, el, container);
+          decorateZone(el, container);
         });
       }
       entry.addedNodes.forEach((n) => {
         n.querySelectorAll(options.selector).forEach((el) => {
-          decorateOverlay.call(this, el, container);
+          decorateZone(el, container);
           visibilityChangeObserver.observe(el);
         });
         // SVG icons might have custom sizes that modify the parent
@@ -140,12 +141,12 @@ export function decorateOverlays(doc, options) {
           if (!parent) {
             return;
           }
-          decorateOverlay.call(this, parent, container);
+          decorateZone(parent, container);
         }
       })
     });
   });
-  document.querySelectorAll('header,main,footer').forEach((el) => {
+  document.querySelectorAll('body > :is(header,main,footer)').forEach((el) => {
     addedNodesObserver.observe(el, { childList: true, subtree: true, attributes: true });
   });
 }
@@ -154,12 +155,12 @@ export function postLazy(doc, options = {}) {
   this.loadCSS(`${options.basePath}/heatmap.css`);
 
   const config = { ...DEFAULT_OPTIONS, ...options };
-  decorateOverlays.call(this, document, config);
+  decorateHeatmap(document, config);
   window.addEventListener('resize', () => {
-    window.requestAnimationFrame(() => decorateOverlays.call(this, document, config));
+    window.requestAnimationFrame(() => decorateHeatmap(document, config));
   });
 
-  const overlay = document.querySelector('.heatmap-overlays')
+  const overlay = document.querySelector(`.${config.overlayClass}`)
   overlay.style.display = 'none';
 
   const btn = this.plugins.preview.createToggleButton('Heatmap');
