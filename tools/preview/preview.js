@@ -72,7 +72,7 @@ function createPopupButton(label, header, items) {
 function createToggleButton(label) {
   const button = document.createElement('div');
   button.className = 'hlx-badge';
-  button.role = 'button'
+  button.role = 'button';
   button.setAttribute('aria-pressed', false);
   button.setAttribute('tabindex', 0);
   const text = document.createElement('span');
@@ -94,6 +94,7 @@ function getOverlay() {
 }
 
 export const api = {
+  createButton,
   createPopupButton,
   createToggleButton,
   getOverlay,

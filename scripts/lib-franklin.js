@@ -707,6 +707,7 @@ withPlugin(RumPlugin);
 withPlugin(DecoratorPlugin);
 await withPlugin(`${window.hlx.codeBasePath}/tools/preview/preview.js`, {
   condition: () => window.location.hostname.endsWith('hlx.page')
+    || window.location.hostname === 'localhost.corp.adobe.com'
     || window.location.hostname === 'localhost',
 });
 

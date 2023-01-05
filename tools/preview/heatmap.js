@@ -12,6 +12,7 @@
 export const DEFAULT_OPTIONS = {
   overlayClass: 'hlx-heatmap-overlay',
   selector: 'a,img',
+  source: 'franklin-rum',
 };
 
 export function getRandomId() {
@@ -20,16 +21,22 @@ export function getRandomId() {
 
 export function toElementId(str) {
   return str.toLowerCase()
-    .replace(/(\[\w+="(.*)"\]|:contains\("(.*)"\))/g, (all, g1, g2, g3) => ` ${(g2 || g3).replace(/\W+/g, '-')}`)
-    .replace(/\s/g, '--').replace(/\./g, '-').replace(/-{2,}/g, '--').replace(/(^-+|-+$)/g, '');
+    .replace(
+      /(\[\w+="(.*)"\]|:contains\("(.*)"\))/g,
+      (all, g1, g2, g3) => ` ${(g2 || g3).replace(/\W+/g, '-')}`,
+    )
+    .replace(/\s/g, '--')
+    .replace(/\./g, '-')
+    .replace(/-{2,}/g, '--')
+    .replace(/(^-+|-+$)/g, '');
 }
 
 export function generateUniqueSelector(el) {
   let selector = el.nodeName.toLowerCase();
   if (el.alt) {
-    selector += `[alt="${el.alt.trim()}"]`
+    selector += `[alt="${el.alt.trim()}"]`;
   } else if (el.title) {
-    selector += `[title="${el.title.trim()}"]`
+    selector += `[title="${el.title.trim()}"]`;
   } else {
     selector += `:contains("${el.textContent.trim()}")`;
   }
@@ -65,60 +72,84 @@ export function getPositionStyles(el) {
   return null;
 }
 
-export function updateZone(elOverlay, el) {
-  const rect = el.getBoundingClientRect();
-  const positionStyles = getPositionStyles(el);
-  elOverlay.style.position = positionStyles ? positionStyles.position : 'absolute';
-  elOverlay.style.zIndex = positionStyles ? Math.max(0, Number(positionStyles.zIndex)) : null;
-
-  const offset = elOverlay.style.position === 'fixed' ? { top: 0, left: 0 } : { top: window.scrollY, left: window.scrollX };
-  elOverlay.style.left = `${offset.left + rect.left}px`;
-  elOverlay.style.top = `${offset.top + rect.top}px`;
-  elOverlay.style.width = `${rect.width}px`;
-  elOverlay.style.height = `${rect.height}px`;
-
-  const hue = 255 * (1 - elOverlay.dataset.value);
-  elOverlay.style.backgroundColor = `hsla(${hue} 100% 50% / 50%)`;
-  elOverlay.style.borderColor = `hsl(${hue} 100% 50%)`;
-  elOverlay.firstElementChild.textContent = `${(Number(elOverlay.dataset.value) * 100).toFixed(2)}%`;
+function getZone(el, container = document) {
+  return container.querySelector(`[data-target="${el.id}"]`);
 }
 
-export function decorateZone(el, container) {
+export function updateZone(zone) {
+  if (!zone) {
+    return null;
+  }
+  const el = document.getElementById(zone.dataset.target);
+  const rect = el.getBoundingClientRect();
+  const positionStyles = getPositionStyles(el);
+  zone.style.position = positionStyles ? positionStyles.position : 'absolute';
+  zone.style.zIndex = positionStyles ? Math.max(0, Number(positionStyles.zIndex)) : null;
+
+  const offset = zone.style.position === 'fixed' ? { top: 0, left: 0 } : { top: window.scrollY, left: window.scrollX };
+  zone.style.left = `${offset.left + rect.left}px`;
+  zone.style.top = `${offset.top + rect.top}px`;
+  zone.style.width = `${rect.width}px`;
+  zone.style.height = `${rect.height}px`;
+
+  const hue = 255 * (1 - zone.dataset.value);
+  zone.style.backgroundColor = `hsla(${hue} 100% 50% / 50%)`;
+  zone.style.borderColor = `hsl(${hue} 100% 50%)`;
+  zone.firstElementChild.textContent = `${(Number(zone.dataset.value) * 100).toFixed(2)}%`;
+  return zone;
+}
+
+export async function createZone(el, container, options) {
   if (!el.id) {
     el.id = toElementId(generateUniqueSelector(el));
   }
-  let elOverlay = container.querySelector(`[data-target="${el.id}"]`);
-  if (!elOverlay) {
-    const overlayId = `zone-${getRandomId(el)}`;
-    elOverlay = document.createElement('div');
-    elOverlay.setAttribute('id', overlayId);
-    elOverlay.dataset.target = el.id;
-    container.appendChild(elOverlay);
-
-    elOverlay.dataset.value = Math.random();
-    const label = document.createElement('span');
-    elOverlay.append(label);
+  let zone = getZone(el, container);
+  if (zone) {
+    return zone;
   }
-  updateZone(elOverlay, el);
+  const overlayId = `zone-${getRandomId(el)}`;
+  zone = document.createElement('div');
+  zone.setAttribute('id', overlayId);
+  zone.dataset.target = el.id;
+  container.append(zone);
+
+  zone.dataset.value = await options.metricsProvider.getZoneMetrics(
+    window.location.pathname,
+    el.id,
+  );
+  const label = document.createElement('span');
+  zone.append(label);
+
+  return updateZone(zone);
 }
 
-export function decorateHeatmap(doc, options) {
+export async function updateHeatmap(container, overlay, options) {
+  container.querySelectorAll(options.selector).forEach((el) => updateZone(getZone(el, overlay)));
+}
+
+export function createHeamap(doc, options) {
   let container = document.querySelector(`.${options.overlayClass}`);
   if (!container) {
     container = document.createElement('div');
     container.classList.add(options.overlayClass);
     document.body.appendChild(container);
   }
+  container.style.display = 'none';
 
-  doc.querySelectorAll(options.selector).forEach((el) => decorateZone(el, container));
+  doc.querySelectorAll(options.selector).forEach(async (el) => {
+    createZone(el, container, options);
+  });
 
   // Decorate nodes whose visibility changed
   const visibilityChangeObserver = new IntersectionObserver((entries) => {
-    entries.forEach((entry) => {
-      const el = entry.target;
-      decorateZone(el, container);
-      const overlay = container.querySelector(`[data-target="${el.id}"]`);
-      overlay.style.display = entry.isIntersecting ? 'flex' : 'none';
+    entries.forEach(async (entry) => {
+      let zone = getZone(entry.target, container);
+      if (!zone) {
+        zone = await createZone(entry.target, container, options);
+      } else {
+        updateZone(zone);
+      }
+      zone.style.display = entry.isIntersecting ? 'flex' : 'none';
     });
   });
 
@@ -127,12 +158,12 @@ export function decorateHeatmap(doc, options) {
     entries.forEach((entry) => {
       if (entry.type === 'attributes') {
         entry.target.querySelectorAll(options.selector).forEach((el) => {
-          decorateZone(el, container);
+          updateZone(getZone(el, container));
         });
       }
       entry.addedNodes.forEach((n) => {
         n.querySelectorAll(options.selector).forEach((el) => {
-          decorateZone(el, container);
+          createZone(el, container, options);
           visibilityChangeObserver.observe(el);
         });
         // SVG icons might have custom sizes that modify the parent
@@ -141,34 +172,57 @@ export function decorateHeatmap(doc, options) {
           if (!parent) {
             return;
           }
-          decorateZone(parent, container);
+          updateZone(getZone(parent, container));
         }
-      })
+      });
     });
   });
   document.querySelectorAll('body > :is(header,main,footer)').forEach((el) => {
     addedNodesObserver.observe(el, { childList: true, subtree: true, attributes: true });
   });
+  return container;
 }
 
-export function postLazy(doc, options = {}) {
-  this.loadCSS(`${options.basePath}/heatmap.css`);
-
-  const config = { ...DEFAULT_OPTIONS, ...options };
-  decorateHeatmap(document, config);
-  window.addEventListener('resize', () => {
-    window.requestAnimationFrame(() => decorateHeatmap(document, config));
-  });
-
-  const overlay = document.querySelector(`.${config.overlayClass}`)
-  overlay.style.display = 'none';
-
-  const btn = this.plugins.preview.createToggleButton('Heatmap');
+function decorateHeatmapToggleButton(btn, heatmapOverlay) {
   btn.classList.add('hlx-heatmap-toggle');
-  this.plugins.preview.getOverlay().append(btn);
   btn.addEventListener('click', () => {
-    overlay.style.display = btn.getAttribute('aria-pressed') === 'true'
+    heatmapOverlay.style.display = btn.getAttribute('aria-pressed') === 'true'
       ? 'block'
       : 'none';
+  });
+  return btn;
+}
+
+export async function postLazy(doc, options = {}) {
+  const config = { ...DEFAULT_OPTIONS, ...options };
+  this.loadCSS(`${options.basePath}/heatmap.css`);
+
+  let metricsProvider;
+  switch (config.source) {
+    default:
+      metricsProvider = await import('./metrics-provider-rum.js');
+      break;
+  }
+
+  const { createToggleButton, getOverlay } = this.plugins.preview;
+  const previewOverlay = getOverlay();
+
+  await metricsProvider.init({ ...this, url: window.location.href });
+
+  const heatmapOverlay = createHeamap(doc, { ...config, metricsProvider });
+
+  const heatmapToggleButton = decorateHeatmapToggleButton(
+    createToggleButton('Heatmap'),
+    heatmapOverlay,
+  );
+  previewOverlay.append(heatmapToggleButton);
+
+  window.addEventListener('resize', () => {
+    if (heatmapOverlay.style.display === 'none') {
+      return;
+    }
+    window.requestAnimationFrame(() => {
+      updateHeatmap(doc, heatmapOverlay, { ...config, metricsProvider });
+    });
   });
 }

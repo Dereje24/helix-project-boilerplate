@@ -12,7 +12,8 @@ window.hlx.RUM_GENERATION = 'project-1'; // add your RUM generation information 
 
 await withPlugin('/tools/preview/heatmap.js', {
   condition: () => window.location.hostname === 'localhost'
-    || window.location.origin.endsWith('.hlx.page')
+    || window.location.hostname === 'localhost.corp.adobe.com'
+    || window.location.origin.endsWith('.hlx.page'),
 });
 
 function buildHeroBlock(main) {
@@ -85,8 +86,12 @@ async function loadLazy(doc) {
   const main = doc.querySelector('main');
 
   const { hash } = window.location;
-  const element = hash ? main.querySelector(hash) : false;
-  if (hash && element) element.scrollIntoView();
+  try {
+    const element = hash ? main.querySelector(hash) : false;
+    if (hash && element) element.scrollIntoView();
+  } catch (err) {
+    // Nothing to do here, hash just isn't valid
+  }
 
   loadHeader(doc.querySelector('header'));
   loadFooter(doc.querySelector('footer'));
