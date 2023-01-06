@@ -113,10 +113,7 @@ export async function createZone(el, container, options) {
   zone.dataset.target = el.id;
   container.append(zone);
 
-  zone.dataset.value = await options.metricsProvider.getZoneMetrics(
-    window.location.pathname,
-    el.id,
-  );
+  zone.dataset.value = await options.metricsProvider.getZoneMetrics(el.id);
   const label = document.createElement('span');
   zone.append(label);
 
@@ -204,18 +201,16 @@ export async function postLazy(doc, options = {}) {
       break;
   }
 
-  const { createToggleButton, getOverlay } = this.plugins.preview;
-  const previewOverlay = getOverlay();
-
-  await metricsProvider.init({ ...this, url: window.location.href });
+  await metricsProvider.init({ ...this, url: window.location.origin + window.location.pathname });
 
   const heatmapOverlay = createHeamap(doc, { ...config, metricsProvider });
 
+  const { createToggleButton, getOverlay } = this.plugins.preview;
   const heatmapToggleButton = decorateHeatmapToggleButton(
     createToggleButton('Heatmap'),
     heatmapOverlay,
   );
-  previewOverlay.append(heatmapToggleButton);
+  getOverlay().append(heatmapToggleButton);
 
   window.addEventListener('resize', () => {
     if (heatmapOverlay.style.display === 'none') {
