@@ -11,7 +11,7 @@
  */
 export const DEFAULT_OPTIONS = {
   overlayClass: 'hlx-heatmap-overlay',
-  selector: 'a,img',
+  selector: 'a,[tabindex="0"]',
   source: 'franklin-rum',
 };
 
@@ -22,7 +22,7 @@ export function getRandomId() {
 export function toElementId(str) {
   return str.toLowerCase()
     .replace(
-      /(\[\w+="(.*)"\]|:contains\("(.*)"\))/g,
+      /(\[[\w-]+="([^"]*)"\]|:contains\("(.*)"\))/g,
       (all, g1, g2, g3) => ` ${(g2 || g3).replace(/\W+/g, '-')}`,
     )
     .replace(/\s/g, '--')
@@ -31,7 +31,17 @@ export function toElementId(str) {
     .replace(/(^-+|-+$)/g, '');
 }
 
-export function generateUniqueSelector(el) {
+export function generateSelector(el, suffix = '') {
+  if (!el) {
+    return suffix;
+  }
+  if (el.classList.contains('section')) {
+    return `.${[...new Set(el.classList)].filter((c) => c !== 'section' && !c.endsWith('-container')).join('.')} ${suffix}`;
+  } else if (el.classList.contains('block')) {
+    return generateSelector(el.parentElement.closest('.section'), `.${[...new Set(el.classList)].filter((c) => c !== 'block').join('.')} ${suffix}`);
+  } else if (el.getAttribute('aria-role') && suffix) {
+    return generateSelector(el.parentElement.closest('.block,[aria-role]'), `[aria-role="${el.getAttribute('aria-role')}"] ${suffix}`);
+  }
   let selector = el.nodeName.toLowerCase();
   if (el.alt) {
     selector += `[alt="${el.alt.trim()}"]`;
@@ -40,17 +50,7 @@ export function generateUniqueSelector(el) {
   } else {
     selector += `:contains("${el.textContent.trim()}")`;
   }
-  let node = el;
-  while (node.parentElement) {
-    if (node.classList.contains('block') || node.classList.contains('section') || node.classList.contains('button')) {
-      const token = node.classList.length
-        ? `.${[...node.classList].join('.')}`
-        : node.nodeName.toLowerCase();
-      selector = `${token} ${selector}`;
-    }
-    node = node.parentElement;
-  }
-  return selector;
+  return generateSelector(el.parentElement.closest('.block,[aria-role]'), selector);
 }
 
 export function getPositionStyles(el) {
@@ -101,7 +101,7 @@ export function updateZone(zone) {
 
 export async function createZone(el, container, options) {
   if (!el.id) {
-    el.id = toElementId(generateUniqueSelector(el));
+    el.id = toElementId(generateSelector(el));
   }
   let zone = getZone(el, container);
   if (zone) {
@@ -159,6 +159,9 @@ export function createHeamap(doc, options) {
         });
       }
       entry.addedNodes.forEach((n) => {
+        if (n.nodeType === Node.TEXT_NODE) {
+          return;
+        }
         n.querySelectorAll(options.selector).forEach((el) => {
           createZone(el, container, options);
           visibilityChangeObserver.observe(el);
@@ -196,6 +199,9 @@ export async function postLazy(doc, options = {}) {
 
   let metricsProvider;
   switch (config.source) {
+    case 'adobe-analytics':
+      metricsProvider = await import('./metrics-provider-analytics.js');
+      break;
     default:
       metricsProvider = await import('./metrics-provider-rum.js');
       break;
@@ -213,9 +219,6 @@ export async function postLazy(doc, options = {}) {
   getOverlay().append(heatmapToggleButton);
 
   window.addEventListener('resize', () => {
-    if (heatmapOverlay.style.display === 'none') {
-      return;
-    }
     window.requestAnimationFrame(() => {
       updateHeatmap(doc, heatmapOverlay, { ...config, metricsProvider });
     });
