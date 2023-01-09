@@ -20,7 +20,7 @@ function isProd(url) {
 }
 
 export async function init({ url }) {
-  // For demo purposes while we don't have any real data
+  // FIXME: for demo purposes while we don't have any real data
   if (!isProd(new URL(url))) {
     return;
   }
@@ -43,7 +43,7 @@ export async function init({ url }) {
 }
 
 export async function getZoneMetrics(id) {
-  // For demo purposes while we don't have any real data
+  // FIXME: for demo purposes while we don't have any real data
   if (!data.length && !total) {
     return Math.random();
   }

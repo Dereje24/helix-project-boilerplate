@@ -9,16 +9,22 @@
  * OF ANY KIND, either express or implied. See the License for the specific language
  * governing permissions and limitations under the License.
  */
+
+// Default options for the plugin
 export const DEFAULT_OPTIONS = {
   overlayClass: 'hlx-heatmap-overlay',
   selector: 'a,[tabindex="0"]',
   source: 'franklin-rum',
 };
 
+// Generates the random ids for the individual zones
 export function getRandomId() {
   return Math.random().toString(16).slice(2);
 }
 
+// Converts the selector generated below to a useable DOM id
+// TODO: this needs to be extracted to the scripts.js so links are properly instrumented upstream
+// before they actually send RUM/analytics events
 export function toElementId(str) {
   return str.toLowerCase()
     .replace(
@@ -31,28 +37,58 @@ export function toElementId(str) {
     .replace(/(^-+|-+$)/g, '');
 }
 
+// Used to make sure every instrumented element that triggers the metrics has a (semi-)unique
+// selector that we can use to generate an identifier (above)
+// TODO: this needs to be extracted to the scripts.js so links are properly instrumented upstream
+// before they actually send RUM/analytics events
 export function generateSelector(el, suffix = '') {
   if (!el) {
     return suffix;
   }
-  if (el.classList.contains('section')) {
-    return `.${[...new Set(el.classList)].filter((c) => c !== 'section' && !c.endsWith('-container')).join('.')} ${suffix}`;
-  } else if (el.classList.contains('block')) {
-    return generateSelector(el.parentElement.closest('.section'), `.${[...new Set(el.classList)].filter((c) => c !== 'block').join('.')} ${suffix}`);
-  } else if (el.getAttribute('aria-role') && suffix) {
+
+  if (el.classList.contains('section')) { // add the section context classes
+    const classes = [...new Set(el.classList)].filter((c) => c !== 'section' && !c.endsWith('-container'));
+    return classes.length ? `.${classes.join('.')} ${suffix}` : suffix;
+  } else if (el.classList.contains('block')) { // add the block context classes
+    const classes = [...new Set(el.classList)].filter((c) => c !== 'block');
+    return generateSelector(el.parentElement.closest('.section,main>div'), classes.length ? `.${classes.join('.')} ${suffix}` : suffix);
+  } else if (el.getAttribute('aria-role') && suffix) { // add any relevant intermediary accessibility element
     return generateSelector(el.parentElement.closest('.block,[aria-role]'), `[aria-role="${el.getAttribute('aria-role')}"] ${suffix}`);
+  } else if (suffix) {
+    return suffix;
   }
+
+  // Elements usually either have a link, or they have classes indicating their purpose
   let selector = el.nodeName.toLowerCase();
+  if (el.href) {
+    selector += `[href="${el.href}"]`;
+  } else if (el.classList.length) {
+    selector += `.${[...new Set(el.classList)].filter((c) => c !== 'button').join('.')}`;
+  }
+
+  // To increase specificity, we also add whatever serves as relevant "text" for the element
+  // TODO: maybe consider refactoring this so we don't fully depend on the exact text since this
+  // prevents experimenting on the typo for the element without having analytics seeing a different
+  // element in the end
   if (el.alt) {
     selector += `[alt="${el.alt.trim()}"]`;
   } else if (el.title) {
     selector += `[title="${el.title.trim()}"]`;
   } else {
-    selector += `:contains("${el.textContent.trim()}")`;
+    let content;
+    if (el.firstElementChild) {
+      content = [...el.children].filter((c) => c.nodeType === Node.TEXT_NODE).map((c) => c.textContent.trim()).join(' ');
+    } else {
+      content = el.textContent.trim();
+    }
+    if (content) {
+      selector += `:contains("${content}")`;
+    }
   }
   return generateSelector(el.parentElement.closest('.block,[aria-role]'), selector);
 }
 
+// Get the CSS positioning and z-index to properly position the heatmap zone
 export function getPositionStyles(el) {
   let parent = el.offsetParent;
   if (!parent) {
@@ -72,10 +108,12 @@ export function getPositionStyles(el) {
   return null;
 }
 
+// Returns the zone for the specified element
 function getZone(el, container = document) {
   return container.querySelector(`[data-target="${el.id}"]`);
 }
 
+// Update the positioning of the specified zone
 export function updateZone(zone) {
   if (!zone) {
     return null;
@@ -99,9 +137,12 @@ export function updateZone(zone) {
   return zone;
 }
 
+// Create a zone for the specified element
 export async function createZone(el, container, options) {
   if (!el.id) {
-    el.id = toElementId(generateSelector(el));
+    const selector = generateSelector(el);
+    console.debug(selector);
+    el.id = toElementId(selector);
   }
   let zone = getZone(el, container);
   if (zone) {
@@ -120,11 +161,14 @@ export async function createZone(el, container, options) {
   return updateZone(zone);
 }
 
+// Update all the heatmap zones at once
 export async function updateHeatmap(container, overlay, options) {
   container.querySelectorAll(options.selector).forEach((el) => updateZone(getZone(el, overlay)));
 }
 
-export function createHeamap(doc, options) {
+// Creates the heatmap overlay, and all the zones in it.
+// Also watches for DOM changes so we dynamically update zones as needed
+export function createHeatmap(doc, options) {
   let container = document.querySelector(`.${options.overlayClass}`);
   if (!container) {
     container = document.createElement('div');
@@ -137,7 +181,7 @@ export function createHeamap(doc, options) {
     createZone(el, container, options);
   });
 
-  // Decorate nodes whose visibility changed
+  // Decorate nodes whose visibility changed (like when toggling menus)
   const visibilityChangeObserver = new IntersectionObserver((entries) => {
     entries.forEach(async (entry) => {
       let zone = getZone(entry.target, container);
@@ -150,9 +194,10 @@ export function createHeamap(doc, options) {
     });
   });
 
-  // Decorate nodes added asynchronously
+  // Decorate nodes added asynchronously (i.e. those added in async blocks like header/footer/etc.)
   const addedNodesObserver = new MutationObserver((entries) => {
     entries.forEach((entry) => {
+      // If the attributes (class) changed, we likely need to update the zone positioning
       if (entry.type === 'attributes') {
         entry.target.querySelectorAll(options.selector).forEach((el) => {
           updateZone(getZone(el, container));
@@ -162,10 +207,15 @@ export function createHeamap(doc, options) {
         if (n.nodeType === Node.TEXT_NODE) {
           return;
         }
-        n.querySelectorAll(options.selector).forEach((el) => {
+        if (n.matches(options.selector)) { // if the node itself matches the targeted ones
           createZone(el, container, options);
           visibilityChangeObserver.observe(el);
-        });
+        } else { // if any of its children is
+          n.querySelectorAll(options.selector).forEach((el) => {
+            createZone(el, container, options);
+            visibilityChangeObserver.observe(el);
+          });
+        }
         // SVG icons might have custom sizes that modify the parent
         if (n.nodeName === 'svg') {
           const parent = n.closest(options.selector);
@@ -177,12 +227,15 @@ export function createHeamap(doc, options) {
       });
     });
   });
+  // Only watch for nodes in the header/main/footer so we don't unnecessarily instrument stuff
+  // from the overlays themselves
   document.querySelectorAll('body > :is(header,main,footer)').forEach((el) => {
     addedNodesObserver.observe(el, { childList: true, subtree: true, attributes: true });
   });
   return container;
 }
 
+// Creates the toggle button for the heatmaps
 function decorateHeatmapToggleButton(btn, heatmapOverlay) {
   btn.classList.add('hlx-heatmap-toggle');
   btn.addEventListener('click', () => {
@@ -193,10 +246,14 @@ function decorateHeatmapToggleButton(btn, heatmapOverlay) {
   return btn;
 }
 
+// The main entry point triggered at the end of the lazy phase
 export async function postLazy(doc, options = {}) {
   const config = { ...DEFAULT_OPTIONS, ...options };
+
+  // Load the related CSS
   this.loadCSS(`${options.basePath}/heatmap.css`);
 
+  // Select the right metrics provider that will give us the analytics values
   let metricsProvider;
   switch (config.source) {
     case 'adobe-analytics':
@@ -209,7 +266,7 @@ export async function postLazy(doc, options = {}) {
 
   await metricsProvider.init({ ...this, url: window.location.origin + window.location.pathname });
 
-  const heatmapOverlay = createHeamap(doc, { ...config, metricsProvider });
+  const heatmapOverlay = createHeatmap(doc, { ...config, metricsProvider });
 
   const { createToggleButton, getOverlay } = this.plugins.preview;
   const heatmapToggleButton = decorateHeatmapToggleButton(
@@ -218,6 +275,7 @@ export async function postLazy(doc, options = {}) {
   );
   getOverlay().append(heatmapToggleButton);
 
+  // Update the zone positions if the window is resized
   window.addEventListener('resize', () => {
     window.requestAnimationFrame(() => {
       updateHeatmap(doc, heatmapOverlay, { ...config, metricsProvider });

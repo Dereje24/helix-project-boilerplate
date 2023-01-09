@@ -29,7 +29,7 @@ async function loadImsProfile(config) {
     window.adobeid = {
       scope: 'AdobeID,openid',
       locale: 'en_US',
-      environment: 'stg1',
+      environment: 'stg1', // FIXME: need to be switched to prod once we have the right client id
       onAccessToken: ({ sid, token }) => {
         console.debug('[IMS] Session id', sid);
         console.debug('[IMS] Token', token);
@@ -47,7 +47,8 @@ async function loadImsProfile(config) {
       },
       ...config,
     };
-    addScript('https://auth-stg1.services.adobe.com/imslib/imslib.js')
+    // addScript('https://auth.services.adobe.com/imslib/imslib.min.js') // prod
+    addScript('https://auth-stg1.services.adobe.com/imslib/imslib.js') // stage
       .catch((err) => reject(err));
   });
 }
@@ -67,6 +68,8 @@ function decorateImsLoginButton(btn) {
 export async function init(context) {
   // Authenticate if needed, and return the IMS profile. Also cleanup URL hash from auth flow
   const [, oldHash = ''] = window.location.hash.match(/old_hash=([^&]*)/) || [];
+
+  // FIXME: need to use a dedicated IMS client id, instead of the test one from stage
   await loadImsProfile({ client_id: 'IMSLibJSTestClient' });
   if (oldHash) {
     window.location.hash = oldHash;
@@ -76,6 +79,8 @@ export async function init(context) {
 
   // Add the IMS login button
   const { createButton, getOverlay } = context.plugins.preview;
+  // FIXME: we probably want to merge back the login into the regular heatmap toggle once
+  // everything is working
   const imsLoginButton = decorateImsLoginButton(createButton(
     window.adobeIMS.isSignedInUser()
       ? 'IMS Logout'
@@ -85,5 +90,6 @@ export async function init(context) {
 }
 
 export async function getZoneMetrics(id) {
+  // TODO: need to connect this to the Analytics API v2 metrics
   return Math.random();
 }
