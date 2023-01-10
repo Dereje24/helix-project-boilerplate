@@ -13,6 +13,7 @@
 // Default options for the plugin
 export const DEFAULT_OPTIONS = {
   overlayClass: 'hlx-heatmap-overlay',
+  rootSelector: 'body > :is(header,main,footer)',
   selector: 'a,[tabindex="0"]',
   source: 'franklin-rum',
 };
@@ -47,13 +48,13 @@ export function generateSelector(el, suffix = '') {
   }
 
   if (el.classList.contains('section')) { // add the section context classes
-    const classes = [...new Set(el.classList)].filter((c) => c !== 'section' && !c.endsWith('-container'));
+    const classes = [...new Set(el.classList)].filter((c) => c !== 'section');
     return classes.length ? `.${classes.join('.')} ${suffix}` : suffix;
   } else if (el.classList.contains('block')) { // add the block context classes
     const classes = [...new Set(el.classList)].filter((c) => c !== 'block');
     return generateSelector(el.parentElement.closest('.section,main>div'), classes.length ? `.${classes.join('.')} ${suffix}` : suffix);
   } else if (el.getAttribute('aria-role') && suffix) { // add any relevant intermediary accessibility element
-    return generateSelector(el.parentElement.closest('.block,[aria-role]'), `[aria-role="${el.getAttribute('aria-role')}"] ${suffix}`);
+    return generateSelector(el.parentElement.closest('[aria-role],.block,.section,main>div'), `[aria-role="${el.getAttribute('aria-role')}"] ${suffix}`);
   } else if (suffix) {
     return suffix;
   }
@@ -61,7 +62,7 @@ export function generateSelector(el, suffix = '') {
   // Elements usually either have a link, or they have classes indicating their purpose
   let selector = el.nodeName.toLowerCase();
   if (el.href) {
-    selector += `[href="${el.href}"]`;
+    selector += `[href="${el.getAttribute('href')}"]`;
   } else if (el.classList.length) {
     selector += `.${[...new Set(el.classList)].filter((c) => c !== 'button').join('.')}`;
   }
@@ -85,7 +86,7 @@ export function generateSelector(el, suffix = '') {
       selector += `:contains("${content}")`;
     }
   }
-  return generateSelector(el.parentElement.closest('.block,[aria-role]'), selector);
+  return generateSelector(el.parentElement.closest('[aria-role],.block,.section,main>div'), selector);
 }
 
 // Get the CSS positioning and z-index to properly position the heatmap zone
@@ -141,7 +142,6 @@ export function updateZone(zone) {
 export async function createZone(el, container, options) {
   if (!el.id) {
     const selector = generateSelector(el);
-    console.debug(selector);
     el.id = toElementId(selector);
   }
   let zone = getZone(el, container);
@@ -163,75 +163,91 @@ export async function createZone(el, container, options) {
 
 // Update all the heatmap zones at once
 export async function updateHeatmap(container, overlay, options) {
-  container.querySelectorAll(options.selector).forEach((el) => updateZone(getZone(el, overlay)));
+  window.requestAnimationFrame(() => {
+    container.querySelectorAll(options.selector).forEach((el) => updateZone(getZone(el, overlay)));
+  });
 }
 
 // Creates the heatmap overlay, and all the zones in it.
 // Also watches for DOM changes so we dynamically update zones as needed
 export function createHeatmap(doc, options) {
-  let container = document.querySelector(`.${options.overlayClass}`);
+  // Create the overlay element and hide it by default
+  let container = doc.querySelector(`.${options.overlayClass}`);
   if (!container) {
-    container = document.createElement('div');
+    container = doc.createElement('div');
     container.classList.add(options.overlayClass);
-    document.body.appendChild(container);
+    doc.body.appendChild(container);
   }
   container.style.display = 'none';
 
-  doc.querySelectorAll(options.selector).forEach(async (el) => {
-    createZone(el, container, options);
-  });
-
-  // Decorate nodes whose visibility changed (like when toggling menus)
-  const visibilityChangeObserver = new IntersectionObserver((entries) => {
-    entries.forEach(async (entry) => {
-      let zone = getZone(entry.target, container);
-      if (!zone) {
-        zone = await createZone(entry.target, container, options);
-      } else {
-        updateZone(zone);
-      }
-      zone.style.display = entry.isIntersecting ? 'flex' : 'none';
+  // Add all the zones
+  window.requestAnimationFrame(async () => {
+    doc.querySelectorAll(`${options.rootSelector} :is(${options.selector})`).forEach(async (el) => {
+      createZone(el, container, options);
     });
   });
 
-  // Decorate nodes added asynchronously (i.e. those added in async blocks like header/footer/etc.)
+  // Update zones when their matching elements toggle visibility (like when toggling menus)
+  const visibilityChangeObserver = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      window.requestAnimationFrame(async () => {
+        let zone = getZone(entry.target, container);
+        if (!zone) {
+          zone = await createZone(entry.target, container, options);
+        } else {
+          updateZone(zone);
+        }
+        zone.style.display = entry.isIntersecting ? 'flex' : 'none';
+      });
+    });
+  });
+
+  // Create/update zones for element added/updated asynchronously (i.e. those added in async blocks like header/footer/etc.)
   const addedNodesObserver = new MutationObserver((entries) => {
     entries.forEach((entry) => {
-      // If the attributes (class) changed, we likely need to update the zone positioning
-      if (entry.type === 'attributes') {
-        entry.target.querySelectorAll(options.selector).forEach((el) => {
-          updateZone(getZone(el, container));
-        });
-      }
-      entry.addedNodes.forEach((n) => {
-        if (n.nodeType === Node.TEXT_NODE) {
-          return;
-        }
-        if (n.matches(options.selector)) { // if the node itself matches the targeted ones
-          createZone(el, container, options);
-          visibilityChangeObserver.observe(el);
-        } else { // if any of its children is
-          n.querySelectorAll(options.selector).forEach((el) => {
-            createZone(el, container, options);
-            visibilityChangeObserver.observe(el);
+      window.requestAnimationFrame(async () => {
+        // If the attributes (class, etc.) changed, we likely need to update the zone positioning
+        if (entry.type === 'attributes') {
+          entry.target.querySelectorAll(options.selector).forEach((el) => {
+              updateZone(getZone(el, container));
           });
         }
-        // SVG icons might have custom sizes that modify the parent
-        if (n.nodeName === 'svg') {
-          const parent = n.closest(options.selector);
-          if (!parent) {
+        entry.addedNodes.forEach((n) => {
+          if (n.nodeType === Node.TEXT_NODE) {
             return;
           }
-          updateZone(getZone(parent, container));
-        }
+          if (n.matches(options.selector)) { // if the node itself matches the targeted ones
+            createZone(el, container, options);
+            visibilityChangeObserver.observe(el);
+          } else { // if any of its children is
+            n.querySelectorAll(options.selector).forEach((el) => {
+              createZone(el, container, options);
+              visibilityChangeObserver.observe(el);
+            });
+          }
+          // SVG icons might have custom sizes that modify the parent
+          if (n.nodeName === 'svg') {
+            const parent = n.closest(options.selector);
+            if (!parent) {
+              return;
+            }
+            updateZone(getZone(parent, container));
+          }
+        });
       });
     });
   });
   // Only watch for nodes in the header/main/footer so we don't unnecessarily instrument stuff
   // from the overlays themselves
-  document.querySelectorAll('body > :is(header,main,footer)').forEach((el) => {
+  document.querySelectorAll(options.rootSelector).forEach((el) => {
     addedNodesObserver.observe(el, { childList: true, subtree: true, attributes: true });
   });
+
+  // Update the zone positions if the window is resized
+  window.addEventListener('resize', () => {
+    window.requestAnimationFrame(() => updateHeatmap(doc, container, options));
+  });
+
   return container;
 }
 
@@ -264,21 +280,17 @@ export async function postLazy(doc, options = {}) {
       break;
   }
 
+  // Initialize the metrics provider so it fetches the data in the background
   await metricsProvider.init({ ...this, url: window.location.origin + window.location.pathname });
 
+  // Create the heatmap overlay, with all the zones
   const heatmapOverlay = createHeatmap(doc, { ...config, metricsProvider });
 
+  // Add a toggle button to enble/disable the heatmap overlay
   const { createToggleButton, getOverlay } = this.plugins.preview;
   const heatmapToggleButton = decorateHeatmapToggleButton(
     createToggleButton('Heatmap'),
     heatmapOverlay,
   );
   getOverlay().append(heatmapToggleButton);
-
-  // Update the zone positions if the window is resized
-  window.addEventListener('resize', () => {
-    window.requestAnimationFrame(() => {
-      updateHeatmap(doc, heatmapOverlay, { ...config, metricsProvider });
-    });
-  });
 }
