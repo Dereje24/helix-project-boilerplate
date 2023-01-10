@@ -50,12 +50,15 @@ export function generateSelector(el, suffix = '') {
   if (el.classList.contains('section')) { // add the section context classes
     const classes = [...new Set(el.classList)].filter((c) => c !== 'section');
     return classes.length ? `.${classes.join('.')} ${suffix}` : suffix;
-  } else if (el.classList.contains('block')) { // add the block context classes
+  }
+  if (el.classList.contains('block')) { // add the block context classes
     const classes = [...new Set(el.classList)].filter((c) => c !== 'block');
     return generateSelector(el.parentElement.closest('.section,main>div'), classes.length ? `.${classes.join('.')} ${suffix}` : suffix);
-  } else if (el.getAttribute('aria-role') && suffix) { // add any relevant intermediary accessibility element
+  }
+  if (el.getAttribute('aria-role') && suffix) { // add any relevant intermediary accessibility element
     return generateSelector(el.parentElement.closest('[aria-role],.block,.section,main>div'), `[aria-role="${el.getAttribute('aria-role')}"] ${suffix}`);
-  } else if (suffix) {
+  }
+  if (suffix) {
     return suffix;
   }
 
@@ -202,14 +205,15 @@ export function createHeatmap(doc, options) {
     });
   });
 
-  // Create/update zones for element added/updated asynchronously (i.e. those added in async blocks like header/footer/etc.)
+  // Create/update zones for element added/updated asynchronously
+  // (i.e. those added in async blocks like header/footer/etc.)
   const addedNodesObserver = new MutationObserver((entries) => {
     entries.forEach((entry) => {
       window.requestAnimationFrame(async () => {
         // If the attributes (class, etc.) changed, we likely need to update the zone positioning
         if (entry.type === 'attributes') {
           entry.target.querySelectorAll(options.selector).forEach((el) => {
-              updateZone(getZone(el, container));
+            updateZone(getZone(el, container));
           });
         }
         entry.addedNodes.forEach((n) => {
@@ -217,8 +221,8 @@ export function createHeatmap(doc, options) {
             return;
           }
           if (n.matches(options.selector)) { // if the node itself matches the targeted ones
-            createZone(el, container, options);
-            visibilityChangeObserver.observe(el);
+            createZone(n, container, options);
+            visibilityChangeObserver.observe(n);
           } else { // if any of its children is
             n.querySelectorAll(options.selector).forEach((el) => {
               createZone(el, container, options);
